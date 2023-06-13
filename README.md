@@ -19,7 +19,7 @@ MyProject is a note-taking application built using the MERN stack (MongoDB, Expr
 - bcrypt: A library for hashing user passwords securely.
 - JSON Web Tokens (JWT): A token-based authentication mechanism.
 - MongoDB Atlas: A cloud-based database service used for storing notes.
-- Heroku: A cloud platform for deploying the application.
+
 
 ## Installation
 
