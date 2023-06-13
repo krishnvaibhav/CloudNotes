@@ -7,13 +7,13 @@ const {
   validationResult,
   ExpressValidator,
 } = require("express-validator");
-const dotenv = require("dotenv");
+
 const jwt = require("jsonwebtoken");
 const fetchUser = require("../middleware/fetchUser");
 
-dotenv.config({ path: "backend/app/.env.local" });
+const JWT_TOKEN = "mykey";
 
-const JWT_TOKEN = process.env.JWT_TOKEN;
+console.log(JWT_TOKEN);
 // Create a user using :POST "/api/auth/CreateUser/" . Doesn't require auth
 // Route 1
 
@@ -27,10 +27,12 @@ router.post(
   ],
   async (req, res) => {
     try {
+      let success;
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        success = false;
         // If there are validation errors, return a response with the errors
-        return res.status(400).json({ errors: errors.errors });
+        return res.status(400).json({ success, errors: errors.errors });
       }
       // Check if a user with the same email already exists
       let user = await User.findOne({
@@ -38,7 +40,10 @@ router.post(
       });
       if (user) {
         // If user already exists, return an error response
-        return res.status(400).json({ error: "This email id already exists" });
+        success = false;
+        return res
+          .status(400)
+          .json({ success, error: "This email id already exists" });
       }
       // If user doesn't exist, create a new user
       const Userobj = req.body;
@@ -61,11 +66,14 @@ router.post(
             },
           };
           const authToken = jwt.sign(data, JWT_TOKEN);
-          res.json({ authToken });
+          success = true;
+          res.json({ success, authToken });
         })
         .catch((err) => {
+          success = true;
           // If there's an error during user creation, send an error response
           res.status(400).send({
+            success,
             error: err,
             message: err.message,
           });
@@ -85,24 +93,29 @@ router.post(
   [body("email").isEmail(), body("password", "can not be blank").exists()],
   async (req, res) => {
     try {
+      let success = false;
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        success = false;
+        return res.status(400).json({ success, errors: errors.array() });
       }
 
       const { email, password } = req.body;
       let user = await User.findOne({ email });
       if (!user) {
+        success = false;
         return res.status(400).json({
+          success,
           error: "Please login with valid credentials",
         });
       }
 
       const passwordCompare = await bcrypt.compare(password, user.password);
       if (!passwordCompare) {
-        return res.status(400).json({
-          error: "Please login with valid credentials",
-        });
+        success = false;
+        return res
+          .status(400)
+          .json({ success, error: "Please login with valid credentials" });
       }
 
       // Validate the supplied user password
@@ -112,12 +125,11 @@ router.post(
           id: user.id,
         },
       };
-      const authToken = jwt.sign(data, process.env.JWT_TOKEN);
-
-      res.json({ authToken });
+      const authToken = jwt.sign(data, JWT_TOKEN);
+      success = true;
+      res.json({ success, authToken });
     } catch (err) {
-      console.error(err);
-      res.status(500).send({ error: "Internal Server Error" });
+      res.status(500).send({ success: false, error: "Internal Server Error" });
     }
   }
 );
@@ -129,9 +141,9 @@ router.post("/GetUser", fetchUser, async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId).select("-password");
-    res.send(user);
+    res.send({ success: true, user });
   } catch {
-    console.log("error");
+    res.send({ success: false, msg: "could not get user" });
   }
 });
 
